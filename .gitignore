@@ -1,0 +1,52 @@
+# Python 字节码文件
+*.pyc
+__pycache__/
+*/__pycache__/*
+
+# 日志文件
+*.log
+*/log/*.log
+
+# 虚拟环境
+venv/
+env/
+.venv/
+
+# IDE 相关文件
+.vscode/
+.idea/
+
+*.swp
+*.swo
+
+# 操作系统生成的文件
+.DS_Store
+Thumbs.db
+
+# 特定项目文件（根据你的项目结构可能需要调整）
+vntrader/log/
+vntrader/model/
+vntrader/vt_setting.json
+vntrader/.ipynb_checkpoints/
+
+# 编译文件和构建目录
+build/
+dist/
+*.egg-info/
+
+# 临时文件
+*.tmp
+*.bak
+
+*~
+
+# 数据库文件（如果有）
+*.db
+*.sqlite3
+vnpy_binance/.ipynb_checkpoints/
+
+# 环境变量文件（如果有）
+.env
+vntrader/
+
+
