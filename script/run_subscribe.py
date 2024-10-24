@@ -28,14 +28,14 @@ def run_subsribe():
 
     # Subscribe to tick data
     tick_req = TickSubscribeRequest(
-        symbol="BTCUSDT",
-        exchange=Exchange.BINANCE
+        symbols=["BTCUSDT","ETHUSDT"],
+        exchange=Exchange.BINANCE,
     )
     main_engine.subscribe(tick_req, "BINANCE_LINEAR")
 
     # Subscribe to kline data
     kline_req = KlineSubscribeRequest(
-        symbol="BTCUSDT",
+        symbols=["BTCUSDT","ETHUSDT"],
         exchange=Exchange.BINANCE,
         interval=Interval.MINUTE
     )
@@ -43,13 +43,13 @@ def run_subsribe():
 
     # Subscribe to trade data
     trade_req = TradeSubscribeRequest(
-        symbol="BTCUSDT",
+        symbols=["BTCUSDT","ETHUSDT"],
         exchange=Exchange.BINANCE
     )
     main_engine.subscribe(trade_req, "BINANCE_LINEAR")
 
     aggtrade_req = AggTradeSubscribeRequest(
-        symbol="BTCUSDT",
+        symbols=["BTCUSDT","ETHUSDT"],
         exchange=Exchange.BINANCE
     )
     main_engine.subscribe(aggtrade_req, "BINANCE_LINEAR")

@@ -40,8 +40,7 @@ from vnpy_evo.trader.event import EVENT_TIMER
 from vnpy_evo.trader.utility import round_to, ZoneInfo
 from vnpy_evo.rest import Request, RestClient, Response
 from vnpy_evo.websocket import WebsocketClient
-from typing import List,  Union
-
+from typing import List, Union, Set, Optional
 
 # Timezone constant
 UTC_TZ = ZoneInfo("UTC")
@@ -913,117 +912,82 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
             }
             self.send_packet(req)
 
+    def _filter_valid_symbols(self, symbols: List[str]) -> Set[str]:
+        """
+        Filter and return valid symbols
+
+        Args:
+            symbols: List of symbols to validate
+
+        Returns:
+            Set[str]: Set of valid symbols
+        """
+        valid_symbols = set()
+        for symbol in symbols:
+            if symbol not in symbol_contract_map:
+                self.gateway.write_log(f"Symbol not found {symbol}")
+                continue
+            valid_symbols.add(symbol)
+        return valid_symbols
+
     def subscribe(self, req: Union[TickSubscribeRequest, TradeSubscribeRequest, KlineSubscribeRequest]) -> None:
         """
         Unified method for market data subscription
 
         Args:
-            req: Subscribe request with different types (Tick/Trade/Kline)
+            req: Subscribe request with different types
         """
-        # Validate symbol
-        if not self._check_symbol_valid(req.symbol):
+        # Validate all symbols
+        valid_symbols = self._filter_valid_symbols(req.symbols)
+        if not valid_symbols:
             return
 
-        # Handle different subscription types
+        channels = []
+
+        # Subscribe based on request type
+        for symbol in valid_symbols:
+            channel = self._create_channel(symbol, req)
+            if channel:
+                channels.append(channel)
+
+        if channels:
+            self.reqid += 1
+            self._send_subscribe_request(channels)
+
+    def _create_channel(self, symbol: str, req: BaseSubscribeRequest) -> Optional[str]:
+        """
+        Create subscription channel based on request type
+
+        Args:
+            symbol: Trading symbol
+            req: Subscription request
+
+        Returns:
+            Optional[str]: Channel name if subscription needed, None otherwise
+        """
+        symbol_lower = symbol.lower()
+
         if isinstance(req, KlineSubscribeRequest):
-            self._subscribe_kline(req)
+            if symbol in self.bars:
+                return None
+            return f"{symbol_lower}@kline_1m"
+
         elif isinstance(req, TickSubscribeRequest):
-            self._subscribe_tick(req)
+            if symbol in self.ticks:
+                return None
+            # Initialize tick data
+            return f"{symbol_lower}@ticker"
+
         elif isinstance(req, TradeSubscribeRequest):
-            self._subscribe_trade(req)
+            if symbol in self.trades:
+                return None
+            return f"{symbol_lower}@trade"
+
         elif isinstance(req, AggTradeSubscribeRequest):
-            self._subscribe_aggtrade(req)
+            if symbol in self.trades:
+                return None
+            return f"{symbol_lower}@aggTrade"
 
-
-    def _check_symbol_valid(self, symbol: str) -> bool:
-        """
-        Check if symbol exists in contract map
-
-        Args:
-            symbol: Trading symbol name
-
-        Returns:
-            bool: True if symbol is valid, False otherwise
-        """
-        if symbol not in symbol_contract_map:
-            self.gateway.write_log(f"Symbol not found {symbol}")
-            return False
-        return True
-
-    def _subscribe_tick(self, req: TickSubscribeRequest) -> None:
-        """
-        Handle tick data subscription
-
-        Args:
-            req: Tick subscription request
-        """
-        # Skip if already subscribed
-        if req.symbol in self.ticks:
-            return
-
-        self.reqid += 1
-
-        # Initialize tick object for data storage
-        tick = self._initialize_tick_data(req)
-        self.ticks[req.symbol.lower()] = tick
-
-        # Create ticker channel
-        channels = [f"{req.symbol.lower()}@ticker"]
-        self._send_subscribe_request(channels)
-
-    def _subscribe_kline(self, req: KlineSubscribeRequest) -> None:
-        """
-        Handle kline data subscription
-
-        Args:
-            req: Kline subscription request
-        """
-        # Skip if already subscribed
-        if req.symbol in self.bars:
-            return
-
-        self.reqid += 1
-
-        # Create 1-minute kline channel
-        channels = [f"{req.symbol.lower()}@kline_1m"]
-        self._send_subscribe_request(channels)
-
-    def _subscribe_trade(self, req: TradeSubscribeRequest) -> None:
-        """
-        Handle trade data subscription
-
-        Args:
-            req: Trade subscription request
-        """
-        # Skip if already subscribed
-        if req.symbol in self.trades:
-            return
-
-        self.reqid += 1
-
-        # Create trade channel
-        channels = [f"{req.symbol.lower()}@trade"]
-        self._send_subscribe_request(channels)
-
-    def _initialize_tick_data(self, req: TickSubscribeRequest) -> TickData:
-        """
-        Initialize tick data object
-
-        Args:
-            req: Tick subscription request
-
-        Returns:
-            TickData: Initialized tick data object
-        """
-        tick = TickData(
-            symbol=req.symbol,
-            name=symbol_contract_map[req.symbol].name,
-            exchange=Exchange.BINANCE,
-            datetime=datetime.now(UTC_TZ),
-            gateway_name=self.gateway_name,
-        )
-        tick.extra = {}
-        return tick
 
     def _send_subscribe_request(self, channels: List[str]) -> None:
         """
@@ -1040,23 +1004,6 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
         self.gateway.write_log(f"send {req} to {self.wsapp.url} success")
         self.send_packet(req)
 
-    def _subscribe_aggtrade(self, req: AggTradeSubscribeRequest) -> None:
-        """
-        Handle aggregate trade data subscription
-
-        Args:
-            req: Aggregate trade subscription request
-        """
-        # Skip if already subscribed
-        if req.symbol in self.aggtrades:
-            return
-
-        self.reqid += 1
-
-        # Create aggregate trade channel
-        channels = [f"{req.symbol.lower()}@aggTrade"]
-        self._send_subscribe_request(channels)
-
     def on_packet(self, packet: dict) -> None:
         """Callback of data update"""
         stream: str = packet.get("stream", None)
@@ -1067,55 +1014,58 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
         data: dict = packet["data"]
         symbol, channel = stream.split("@")
         if channel == "ticker":
-            tick: TickData = self.ticks[symbol]
-            tick.volume = float(data['v'])
-            tick.turnover = float(data['q'])
-            tick.open_price = float(data['o'])
-            tick.high_price = float(data['h'])
-            tick.low_price = float(data['l'])
-            tick.last_price = float(data['c'])
-            tick.datetime = generate_datetime(float(data['E']))
-            print(tick)
+            print(data)
+            # tick: TickData = self.ticks[symbol]
+            # tick.volume = float(data['v'])
+            # tick.turnover = float(data['q'])
+            # tick.open_price = float(data['o'])
+            # tick.high_price = float(data['h'])
+            # tick.low_price = float(data['l'])
+            # tick.last_price = float(data['c'])
+            # tick.datetime = generate_datetime(float(data['E']))
+            # print(tick)
         elif channel == "depth10":
-            tick: TickData = self.ticks[symbol]
-            bids: list = data["b"]
-            for n in range(min(10, len(bids))):
-                price, volume = bids[n]
-                tick.__setattr__("bid_price_" + str(n + 1), float(price))
-                tick.__setattr__("bid_volume_" + str(n + 1), float(volume))
-            asks: list = data["a"]
-            for n in range(min(10, len(asks))):
-                price, volume = asks[n]
-                tick.__setattr__("ask_price_" + str(n + 1), float(price))
-                tick.__setattr__("ask_volume_" + str(n + 1), float(volume))
+            print(data)
+            # tick: TickData = self.ticks[symbol]
+            # bids: list = data["b"]
+            # for n in range(min(10, len(bids))):
+            #     price, volume = bids[n]
+            #     tick.__setattr__("bid_price_" + str(n + 1), float(price))
+            #     tick.__setattr__("bid_volume_" + str(n + 1), float(volume))
+            # asks: list = data["a"]
+            # for n in range(min(10, len(asks))):
+            #     price, volume = asks[n]
+            #     tick.__setattr__("ask_price_" + str(n + 1), float(price))
+            #     tick.__setattr__("ask_volume_" + str(n + 1), float(volume))
         elif channel == "trade":
             print(data)
         elif channel == "aggTrade":
             print(data)
         elif channel == "kline":
-            kline_data: dict = data["k"]
-            # Check if bar is closed
-            bar_ready: bool = kline_data.get("x", False)
-            if not bar_ready:
-                return
-
-            dt: datetime = generate_datetime(float(kline_data['t']))
-            bar = BarData(
-                symbol=symbol.upper(),
-                exchange=Exchange.BINANCE,
-                datetime=dt.replace(second=0, microsecond=0),
-                interval=Interval.MINUTE,
-                volume=float(kline_data["v"]),
-                turnover=float(kline_data["q"]),
-                open_price=float(kline_data["o"]),
-                high_price=float(kline_data["h"]),
-                low_price=float(kline_data["l"]),
-                close_price=float(kline_data["c"]),
-                localtime=datetime.now(),
-                gateway_name=self.gateway_name
-            )
-            print(bar)
-            self.gateway.on_bar(copy(bar))
+            print(data)
+            # kline_data: dict = data["k"]
+            # # Check if bar is closed
+            # bar_ready: bool = kline_data.get("x", False)
+            # if not bar_ready:
+            #     return
+            #
+            # dt: datetime = generate_datetime(float(kline_data['t']))
+            # bar = BarData(
+            #     symbol=symbol.upper(),
+            #     exchange=Exchange.BINANCE,
+            #     datetime=dt.replace(second=0, microsecond=0),
+            #     interval=Interval.MINUTE,
+            #     volume=float(kline_data["v"]),
+            #     turnover=float(kline_data["q"]),
+            #     open_price=float(kline_data["o"]),
+            #     high_price=float(kline_data["h"]),
+            #     low_price=float(kline_data["l"]),
+            #     close_price=float(kline_data["c"]),
+            #     localtime=datetime.now(),
+            #     gateway_name=self.gateway_name
+            # )
+            # print(bar)
+            # self.gateway.on_bar(copy(bar))
         else:
             pass
 

@@ -5,6 +5,7 @@ Basic data structure used for general trading function in the trading platform.
 from dataclasses import dataclass, field
 from datetime import datetime
 from logging import INFO
+from typing import List
 
 from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType, SubscribeType
 
@@ -414,12 +415,13 @@ class QuoteRequest:
 @dataclass
 class BaseSubscribeRequest:
     """Base class for subscription requests"""
-    symbol: str
+    symbols: List[str]
     exchange: Exchange
 
+
     def __post_init__(self) -> None:
-        """Generate vt_symbol identifier"""
-        self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
+        """Generate vt_symbols identifier"""
+        self.vt_symbols: List[str] = [f"{symbol}.{self.exchange.value}" for symbol in self.symbols]
 
 @dataclass
 class TickSubscribeRequest(BaseSubscribeRequest):
