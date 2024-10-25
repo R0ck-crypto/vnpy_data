@@ -1041,7 +1041,7 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
             print(data)
         elif channel == "aggTrade":
             print(data)
-        elif channel == "kline":
+        elif channel == "kline_1m":
             print(data)
             # kline_data: dict = data["k"]
             # # Check if bar is closed
