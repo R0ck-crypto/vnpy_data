@@ -158,7 +158,7 @@ class BinanceTrade:
 
 
 @dataclass
-class AggregatedTrade:
+class BinanceAggregatedTrade:
     """
     Binance 聚合交易数据结构
     官方文档: https://binance-docs.github.io/apidocs/spot/en/#aggregate-trade-streams
@@ -211,7 +211,7 @@ class AggregatedTrade:
 
 
 @dataclass
-class KlineData:
+class BinanceKlineData:
     """
     Binance K线数据结构
     官方文档: https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-streams

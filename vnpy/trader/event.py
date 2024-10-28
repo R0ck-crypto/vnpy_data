@@ -13,3 +13,15 @@ EVENT_ACCOUNT = "eAccount."
 EVENT_QUOTE = "eQuote."
 EVENT_CONTRACT = "eContract."
 EVENT_LOG = "eLog"
+
+
+EVENT_TICK_BINANCE = "eTick.binance"
+EVENT_TRADE_BINANCE = "eTrade.binance"
+EVENT_AGGTRADE_BINANCE = "eaggTrade.binance"
+EVENT_BAR_BINANCE = "eBar.binance"
+
+
+
+
+
+

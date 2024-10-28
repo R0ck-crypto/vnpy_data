@@ -33,7 +33,11 @@ from vnpy_evo.trader.object import (
     KlineSubscribeRequest,
     TickSubscribeRequest,
     TradeSubscribeRequest,
-    AggTradeSubscribeRequest
+    AggTradeSubscribeRequest,
+    BinanceTicker,
+    BinanceAggregatedTrade,
+    BinanceTrade,
+    BinanceKlineData
 
 )
 from vnpy_evo.trader.event import EVENT_TIMER
@@ -873,13 +877,32 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
 
         self.gateway: BinanceLinearGateway = gateway
         self.gateway_name: str = gateway.gateway_name
-
-        self.ticks: dict[str, TickData] = {}
-        self.bars: dict[str, BarData] = {}
-        self.trades = {}
-        self.aggtrades = {}
+        self.callbacks = {
+            "ticker": self.on_binance_tick,
+            "trade": self.on_binance_trade,
+            "aggTrade": self.on_binance_aggtrade,
+            "kline_1m": self.on_1m_kline,
+        }
 
         self.reqid: int = 0
+
+    def on_binance_tick(self, data:dict):
+        ticker = BinanceTicker.from_dict(data)
+        print(f'on_binance_tick:{ticker}')
+        self.gateway.on_binance_tick(copy(ticker))
+
+    def on_binance_trade(self, data: dict):
+        trade = BinanceTrade.from_dict(data)
+        self.gateway.on_binance_trade(copy(trade))
+
+    def on_binance_aggtrade(self, data:dict):
+        trade = BinanceAggregatedTrade.from_dict(data)
+        self.gateway.on_binance_aggtrade(copy(trade))
+
+
+    def on_1m_kline(self, data:dict):
+        kline = BinanceKlineData.from_dict(data)
+        self.gateway.on_1m_kline(copy(kline))
 
     def connect(
             self,
@@ -899,18 +922,6 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
         """Callback when server is connected"""
         self.gateway.write_log("Data Websocket API is connected")
 
-        # Resubscribe market data
-        if self.ticks:
-            channels = []
-            for symbol in self.ticks.keys():
-                channels.append(f"{symbol}@ticker")
-
-            req: dict = {
-                "method": "SUBSCRIBE",
-                "params": channels,
-                "id": self.reqid
-            }
-            self.send_packet(req)
 
     def _filter_valid_symbols(self, symbols: List[str]) -> Set[str]:
         """
@@ -968,26 +979,16 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
         symbol_lower = symbol.lower()
 
         if isinstance(req, KlineSubscribeRequest):
-            if symbol in self.bars:
-                return None
             return f"{symbol_lower}@kline_1m"
 
         elif isinstance(req, TickSubscribeRequest):
-            if symbol in self.ticks:
-                return None
-            # Initialize tick data
             return f"{symbol_lower}@ticker"
 
         elif isinstance(req, TradeSubscribeRequest):
-            if symbol in self.trades:
-                return None
             return f"{symbol_lower}@trade"
 
         elif isinstance(req, AggTradeSubscribeRequest):
-            if symbol in self.trades:
-                return None
             return f"{symbol_lower}@aggTrade"
-
 
     def _send_subscribe_request(self, channels: List[str]) -> None:
         """
@@ -1007,67 +1008,16 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
     def on_packet(self, packet: dict) -> None:
         """Callback of data update"""
         stream: str = packet.get("stream", None)
-
         if not stream:
             return
 
         data: dict = packet["data"]
         symbol, channel = stream.split("@")
-        if channel == "ticker":
-            print(data)
-            # tick: TickData = self.ticks[symbol]
-            # tick.volume = float(data['v'])
-            # tick.turnover = float(data['q'])
-            # tick.open_price = float(data['o'])
-            # tick.high_price = float(data['h'])
-            # tick.low_price = float(data['l'])
-            # tick.last_price = float(data['c'])
-            # tick.datetime = generate_datetime(float(data['E']))
-            # print(tick)
-        elif channel == "depth10":
-            print(data)
-            # tick: TickData = self.ticks[symbol]
-            # bids: list = data["b"]
-            # for n in range(min(10, len(bids))):
-            #     price, volume = bids[n]
-            #     tick.__setattr__("bid_price_" + str(n + 1), float(price))
-            #     tick.__setattr__("bid_volume_" + str(n + 1), float(volume))
-            # asks: list = data["a"]
-            # for n in range(min(10, len(asks))):
-            #     price, volume = asks[n]
-            #     tick.__setattr__("ask_price_" + str(n + 1), float(price))
-            #     tick.__setattr__("ask_volume_" + str(n + 1), float(volume))
-        elif channel == "trade":
-            print(data)
-        elif channel == "aggTrade":
-            print(data)
-        elif channel == "kline_1m":
-            print(data)
-            # kline_data: dict = data["k"]
-            # # Check if bar is closed
-            # bar_ready: bool = kline_data.get("x", False)
-            # if not bar_ready:
-            #     return
-            #
-            # dt: datetime = generate_datetime(float(kline_data['t']))
-            # bar = BarData(
-            #     symbol=symbol.upper(),
-            #     exchange=Exchange.BINANCE,
-            #     datetime=dt.replace(second=0, microsecond=0),
-            #     interval=Interval.MINUTE,
-            #     volume=float(kline_data["v"]),
-            #     turnover=float(kline_data["q"]),
-            #     open_price=float(kline_data["o"]),
-            #     high_price=float(kline_data["h"]),
-            #     low_price=float(kline_data["l"]),
-            #     close_price=float(kline_data["c"]),
-            #     localtime=datetime.now(),
-            #     gateway_name=self.gateway_name
-            # )
-            # print(bar)
-            # self.gateway.on_bar(copy(bar))
-        else:
-            pass
+
+        handler = self.callbacks.get(channel)
+        if handler:
+            handler(data)
+
 
     def on_disconnected(self, status_code: int, msg: str) -> None:
         """Callback when server is disconnected"""
