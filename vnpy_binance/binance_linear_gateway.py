@@ -8,7 +8,7 @@ from time import sleep
 from datetime import datetime, timedelta
 from numpy import format_float_positional
 
-from vnpy.trader.object import BaseSubscribeRequest
+from vnpy.trader.object import BaseSubscribeRequest, DepthSubscribeRequest
 from vnpy_evo.event import Event, EventEngine
 from vnpy_evo.trader.constant import (
     Direction,
@@ -37,7 +37,8 @@ from vnpy_evo.trader.object import (
     BinanceTicker,
     BinanceAggregatedTrade,
     BinanceTrade,
-    BinanceKlineData
+    BinanceKlineData,
+    BinanceDepthData
 
 )
 from vnpy_evo.trader.event import EVENT_TIMER
@@ -882,6 +883,7 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
             "trade": self.on_binance_trade,
             "aggTrade": self.on_binance_aggtrade,
             "kline_1m": self.on_1m_kline,
+            "depth": self.on_binance_depth
         }
 
         self.reqid: int = 0
@@ -903,6 +905,11 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
     def on_1m_kline(self, data:dict):
         kline = BinanceKlineData.from_dict(data)
         self.gateway.on_1m_kline(copy(kline))
+
+    def on_binance_depth(self, data: dict):
+        depth = BinanceDepthData.from_dict(data)
+        print(f'on_binance_depth: {depth}')
+        self.gateway.on_binance_depth(copy(depth))
 
     def connect(
             self,
@@ -990,6 +997,10 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
         elif isinstance(req, AggTradeSubscribeRequest):
             return f"{symbol_lower}@aggTrade"
 
+        elif isinstance(req, DepthSubscribeRequest):
+            return f"{symbol_lower}@depth{req.level}"
+
+        return None
     def _send_subscribe_request(self, channels: List[str]) -> None:
         """
         Send websocket subscription request
@@ -1013,6 +1024,10 @@ class BinanceLinearDataWebsocketApi(WebsocketClient):
 
         data: dict = packet["data"]
         symbol, channel = stream.split("@")
+
+        if 'depth' in channel:
+            channel = 'depth'
+
 
         handler = self.callbacks.get(channel)
         if handler:
@@ -1041,5 +1056,4 @@ def format_float(f: float) -> str:
 
 class BinanceUsdtGateway(BinanceLinearGateway):
     """Compatibility interface for the old BinanceUsdtGateway"""
-
     default_name: str = "BINANCE_USDT"

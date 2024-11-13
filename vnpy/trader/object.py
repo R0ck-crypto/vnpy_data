@@ -443,3 +443,10 @@ class KlineSubscribeRequest(BaseSubscribeRequest):
 class AggTradeSubscribeRequest(BaseSubscribeRequest):
     """Request class for aggregate trade data subscription"""
     pass
+
+
+
+@dataclass
+class DepthSubscribeRequest(BaseSubscribeRequest):
+    """Request class for depth data subscription"""
+    level: int  #

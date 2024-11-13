@@ -19,7 +19,7 @@ EVENT_TICK_BINANCE = "eTick.binance"
 EVENT_TRADE_BINANCE = "eTrade.binance"
 EVENT_AGGTRADE_BINANCE = "eaggTrade.binance"
 EVENT_BAR_BINANCE = "eBar.binance"
-
+EVENT_DEPTH_BINANCE = "eDepth.binance"
 
 
 

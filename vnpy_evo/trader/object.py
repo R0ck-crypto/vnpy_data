@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from vnpy.trader.object import *
 from enum import Enum
 from dataclasses import dataclass
@@ -289,4 +291,55 @@ class BinanceKlineData:
                 'Q': str(self.taker_quote_volume),
                 'B': '0'
             }
+        }
+
+
+
+@dataclass
+class BinanceDepthData:
+    """
+    Binance Depth (Order Book) data structure.
+    Official Docs: https://binance-docs.github.io/apidocs/spot/en/#depth-stream
+    """
+    event_type: str  # 'e': Event type, typically "depthUpdate"
+    event_time: datetime  # 'E': Event time
+    symbol: str  # 's': Trading symbol
+    update_id: int  # 'u': Update ID for this event
+    bids: List[Tuple[Decimal, Decimal]]  # 'b': List of (price, quantity) tuples for bids
+    asks: List[Tuple[Decimal, Decimal]]  # 'a': List of (price, quantity) tuples for asks
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'BinanceDepthData':
+        """
+        Create a BinanceDepthData object from a dictionary received via Binance WebSocket.
+
+        Args:
+            data (dict): The raw depth data dictionary.
+
+        Returns:
+            BinanceDepthData: The parsed depth data.
+        """
+        return cls(
+            event_type=data['e'],
+            event_time=datetime.fromtimestamp(data['E'] / 1000),
+            symbol=data['s'],
+            update_id=int(data['u']),
+            bids=[(Decimal(bid[0]), Decimal(bid[1])) for bid in data['b']],  # Parse each bid (price, quantity)
+            asks=[(Decimal(ask[0]), Decimal(ask[1])) for ask in data['a']]   # Parse each ask (price, quantity)
+        )
+
+    def to_dict(self) -> dict:
+        """
+        Convert BinanceDepthData object to a dictionary format.
+
+        Returns:
+            dict: Dictionary representation of the depth data.
+        """
+        return {
+            'e': self.event_type,
+            'E': int(self.event_time.timestamp() * 1000),
+            's': self.symbol,
+            'u': self.update_id,
+            'b': [[str(price), str(quantity)] for price, quantity in self.bids],  # Convert bids to list of lists
+            'a': [[str(price), str(quantity)] for price, quantity in self.asks]   # Convert asks to list of lists
         }

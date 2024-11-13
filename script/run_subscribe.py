@@ -1,8 +1,7 @@
 import time
 
 from vnpy.trader.constant import Interval, Exchange
-from vnpy.trader.object import TickSubscribeRequest, KlineSubscribeRequest, TradeSubscribeRequest, \
-    AggTradeSubscribeRequest
+from vnpy.trader.object import TickSubscribeRequest, KlineSubscribeRequest, TradeSubscribeRequest,AggTradeSubscribeRequest,DepthSubscribeRequest
 from vnpy_evo.trader.engine import MainEngine
 from vnpy_evo.trader.event import EVENT_LOG
 from vnpy_binance import BinanceLinearGateway
@@ -52,7 +51,18 @@ def run_subsribe():
         symbols=["BTCUSDT","ETHUSDT"],
         exchange=Exchange.BINANCE
     )
+
     main_engine.subscribe(aggtrade_req, "BINANCE_LINEAR")
+
+
+    depth_req = DepthSubscribeRequest(
+        symbols=["BTCUSDT","ETHUSDT"],
+        exchange=Exchange.BINANCE,
+        level=10
+    )
+
+    main_engine.subscribe(depth_req, "BINANCE_LINEAR")
+
 
 
     while True:
