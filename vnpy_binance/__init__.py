@@ -22,7 +22,6 @@
 
 from .binance_spot_gateway import BinanceSpotGateway
 from .binance_linear_gateway import BinanceLinearGateway, BinanceUsdtGateway
-from .binance_inverse_gateway import BinanceInverseGateway
 
 
-__version__ = "2024.9.18"
+__version__ = "2024.9.4"

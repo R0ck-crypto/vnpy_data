@@ -343,3 +343,47 @@ class BinanceDepthData:
             'b': [[str(price), str(quantity)] for price, quantity in self.bids],  # Convert bids to list of lists
             'a': [[str(price), str(quantity)] for price, quantity in self.asks]   # Convert asks to list of lists
         }
+
+
+@dataclass
+class BinanceSpotDepthData:
+    """
+    Binance Spot Depth (Order Book) data structure.
+    Official Docs: https://binance-docs.github.io/apidocs/spot/en/#order-book-depth
+    """
+    symbol: str  # 's': Trading symbol
+    last_update_id: int  # 'lastUpdateId': Final update ID in event
+    bids: List[Tuple[Decimal, Decimal]]  # 'bids': List of (price, quantity) tuples for bids
+    asks: List[Tuple[Decimal, Decimal]]  # 'asks': List of (price, quantity) tuples for asks
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'BinanceSpotDepthData':
+        """
+        Create a BinanceSpotDepthData object from a dictionary received via Binance WebSocket.
+
+        Args:
+            data (dict): The raw depth data dictionary.
+
+        Returns:
+            BinanceSpotDepthData: The parsed depth data.
+        """
+        return cls(
+            symbol=data['s'],
+            last_update_id=int(data['lastUpdateId']),
+            bids=[(Decimal(bid[0]), Decimal(bid[1])) for bid in data['bids']],  # Parse each bid (price, quantity)
+            asks=[(Decimal(ask[0]), Decimal(ask[1])) for ask in data['asks']]   # Parse each ask (price, quantity)
+        )
+
+    def to_dict(self) -> dict:
+        """
+        Convert BinanceSpotDepthData object to a dictionary format.
+
+        Returns:
+            dict: Dictionary representation of the depth data.
+        """
+        return {
+            's': self.symbol,
+            'lastUpdateId': self.last_update_id,
+            'bids': [[str(price), str(quantity)] for price, quantity in self.bids],  # Convert bids to list of lists
+            'asks': [[str(price), str(quantity)] for price, quantity in self.asks]   # Convert asks to list of lists
+        }

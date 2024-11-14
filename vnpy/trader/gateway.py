@@ -146,7 +146,6 @@ class BaseGateway(ABC):
         Trade event push.
         Trade event of a specific vt_symbol is also pushed.
         """
-        print(depth)
         self.on_event(EVENT_DEPTH_BINANCE, depth)
 
 
