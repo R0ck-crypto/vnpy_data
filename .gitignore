@@ -26,7 +26,6 @@ Thumbs.db
 # 特定项目文件（根据你的项目结构可能需要调整）
 vntrader/log/
 vntrader/model/
-vntrader/vt_setting.json
 vntrader/.ipynb_checkpoints/
 
 # 编译文件和构建目录
