@@ -1,0 +1,10 @@
+{
+    "sma": {
+        "class_name": "SmaStrategy",
+        "vt_symbols": [
+            "btcfdusd.BINANCE",
+            "BTCUSDT.BINANCE"
+        ],
+        "setting": {}
+    }
+}

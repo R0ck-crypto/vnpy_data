@@ -7,7 +7,7 @@ import pandas as pd
 from vnpy.trader.object import BarData
 from vnpy.trader.constant import Interval
 
-from .expression import calculate_by_expression
+# from .expression import calculate_by_expression
 
 
 class DataTable:
