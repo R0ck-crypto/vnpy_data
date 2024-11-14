@@ -8,7 +8,6 @@ from vnpy_novastrategy.base import EVENT_NOVA_LOG
 from vnpy_evo.trader.setting import get_settings
 
 setting = get_settings()
-print(setting)
 
 def main():
     """主入口函数"""
